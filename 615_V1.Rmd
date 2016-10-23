@@ -12,12 +12,18 @@ library(plyr)
 library(ggplot2)
 library(stringr)
 library(dplyr)
+library(maps)
+library(mapproj)
 ```
 
 ## Load Data and save as RDS files
 ```{r}
 oilgascounty <- read.csv("~/Desktop/615 midterm/oilgascounty.csv", header=TRUE) # Load raw data
 saveRDS(oilgascounty,"oilgas_raw.rds") # Save RDS file
+
+# Delete "county" from column "County_Name":
+oilgascounty=mutate(oilgascounty,County_Name=as.character(County_Name)) 
+oilgascounty=mutate(oilgascounty,County_Name=sapply(strsplit(oilgascounty$County_Name,split = ' ', fixed = TRUE),function(x) (x[1])))
 
 oilcounty=oilgascounty[, -which(names(oilgascounty) %in% c("gas2000","gas2001","gas2002","gas2003","gas2004","gas2005","gas2006","gas2007","gas2008","gas2009","gas2010","gas2011","gas_change_group","oil_gas_change_group"))] # Create a new subset which only consists of oil productions.
 saveRDS(oilcounty,"oilcounty.rds")
@@ -28,10 +34,6 @@ saveRDS(gascounty,"gascounty.rds")
 
 ## 
 ```{r}
-# Delete "county" from column "County_Name":
-oilgascounty=mutate(oilgascounty,County_Name=as.character(County_Name)) 
-oilgascounty=mutate(oilgascounty,County_Name=sapply(strsplit(oilgascounty$County_Name,split = ' ', fixed = TRUE),function(x) (x[1])))
-
 # 
 oilcounty=melt(oilcounty,id.vars = c("FIPS","geoid","Stabr","County_Name","Rural_Urban_Continuum_Code_2013","Urban_Influence_2013","Metro_Nonmetro_2013","Metro_Micro_Noncore_2013","oil_change_group"))
 names(oilcounty)[10]="Year"
@@ -55,6 +57,21 @@ ogcounty_clean=ogcounty_clean[,-1]
 
 ### Visualization
 ```{r}
+# Add oil production of all countys by year
+grossoil=unique(aggregate(as.numeric(ogcounty_clean$Oil_Production),by= list(Year=ogcounty_clean$Year),FUN=sum))
+names(grossoil)[2]="Oil_Sum"
+grossgas=unique(aggregate(as.numeric(ogcounty_clean$Gas_Production),by= list(Year=ogcounty_clean$Year), FUN=sum))
+names(grossgas)[2]="Gas_Sum"
+
+plotoil=ggplot(data=grossoil)+aes(x=Year,y=Oil_Sum,group=1)+geom_path(col="red")+ggtitle("Gross production of Oil")+geom_point()
+plotoil+scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10))
+plotgas=ggplot(data=grossgas)+aes(x=Year,y=Gas_Sum,group=1)+geom_path(col="blue")+ggtitle("Gross production of Gas")+geom_point()
+plotgas+scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10))
+
+# Mapping
+us=map_data("state")
+map=merge(us,gas,all.x = TRUE)
+
 
 ```
 
