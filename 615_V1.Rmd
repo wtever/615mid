@@ -68,10 +68,6 @@ plotoil+scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.t
 plotgas=ggplot(data=grossgas)+aes(x=Year,y=Gas_Sum,group=1)+geom_path(col="blue")+ggtitle("Gross production of Gas")+geom_point()
 plotgas+scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10))
 
-# Mapping
-us=map_data("state")
-map=merge(us,gas,all.x = TRUE)
-
 
 ```
 
