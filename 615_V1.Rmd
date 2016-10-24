@@ -63,11 +63,20 @@ names(grossoil)[2]="Oil_Sum"
 grossgas=unique(aggregate(as.numeric(ogcounty_clean$Gas_Production),by= list(Year=ogcounty_clean$Year), FUN=sum))
 names(grossgas)[2]="Gas_Sum"
 
-plotoil=ggplot(data=grossoil)+aes(x=Year,y=Oil_Sum,group=1)+geom_path(col="red")+ggtitle("Gross production of Oil")+geom_point()
-plotoil+scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10))
-plotgas=ggplot(data=grossgas)+aes(x=Year,y=Gas_Sum,group=1)+geom_path(col="blue")+ggtitle("Gross production of Gas")+geom_point()
-plotgas+scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10))
+ggplot(data=grossoil)+aes(x=Year,y=Oil_Sum,group=1)+geom_path(col="red")+ggtitle("Gross production of Oil")+geom_point()+scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10))
 
+ggplot(data=grossgas)+aes(x=Year,y=Gas_Sum,group=1)+geom_path(col="blue")+ggtitle("Gross production of Gas")+geom_point()+scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10))
+
+# Plot by type of county (2-Metro, 0-Noncore, 1-Micro)
+typecty_oil=aggregate(as.numeric(ogcounty_clean$Oil_Production),by=list(Year=ogcounty_clean$Year,Type=ogcounty_clean$Metro_Micro_Noncore_2013),FUN=sum)
+names(typecty_oil)[3]="Oil_Sum"
+
+ggplot(data=typecty_oil,aes(x=Year,y=Oil_Sum))+geom_bar(stat = "identity",aes(fill=Type))+ scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10))
+
+typecty_gas=aggregate(as.numeric(ogcounty_clean$Gas_Production),by=list(Year=ogcounty_clean$Year,Type=ogcounty_clean$Metro_Micro_Noncore_2013),FUN=sum)
+names(typecty_gas)[3]="Gas_Sum"
+
+ggplot(data=typecty_gas,aes(x=Year,y=Gas_Sum))+geom_bar(stat = "identity",aes(fill=Type))+ scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10))
 
 ```
 
