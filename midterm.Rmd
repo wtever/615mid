@@ -1,0 +1,177 @@
+---
+title: '615 Midterm Project'
+author: "Yu Xia, Ziqing Wang, Bo Zhang"
+date: "October 22, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+library(reshape2)
+library(plyr)
+library(ggplot2)
+library(stringr)
+library(dplyr)
+library(grid)
+```
+
+### Load Data 
+```{r}
+oilgascounty <- read.csv("~/Downloads/oilgascounty.csv", header = TRUE)
+```
+
+### Delete "county" from column "County_Name":
+```{r}
+oilgascounty=mutate(oilgascounty,County_Name=as.character(County_Name)) 
+oilgascounty=mutate(oilgascounty,County_Name=sapply(strsplit(oilgascounty$County_Name,split = ' ', fixed = TRUE),function(x) (x[1])))
+```
+
+### Create new subsets by oil and gas
+```{r}
+# Create a new subset which only consists of oil productions.
+oilcounty=oilgascounty[, -which(names(oilgascounty) %in% c("gas2000","gas2001","gas2002","gas2003","gas2004","gas2005","gas2006","gas2007","gas2008","gas2009","gas2010","gas2011","gas_change_group","oil_gas_change_group"))]
+
+# Create a new subset which only consists of gas productions.
+gascounty=oilgascounty[, -which(names(oilgascounty) %in% c("oil2000","oil2001","oil2002","oil2003","oil2004","oil2005","oil2006","oil2007","oil2008","oil2009","oil2010","oil2011","oil_change_group","oil_gas_change_group"))]
+
+```
+
+### Clean the data by oil and gas
+```{r}
+# consolidate oil production from 2000 to 2011, create a single column for "Year"
+oilcounty=melt(oilcounty,id.vars = c("FIPS","geoid","Stabr","County_Name","Rural_Urban_Continuum_Code_2013","Urban_Influence_2013","Metro_Nonmetro_2013","Metro_Micro_Noncore_2013","oil_change_group"))
+
+# Rename the column
+names(oilcounty)[10]="Year"
+names(oilcounty)[11]="Oil_Production"
+
+# Consolidate gas production from 2000 to 2011, create a single column for "Year"
+gascounty=melt(gascounty,id.vars = c("FIPS","geoid","Stabr","County_Name","Rural_Urban_Continuum_Code_2013","Urban_Influence_2013","Metro_Nonmetro_2013","Metro_Micro_Noncore_2013","gas_change_group"))
+
+# Rename the column
+names(gascounty)[10]="Year"
+names(gascounty)[11]="Gas_Production"
+
+# Remove the character from "Year" column
+oilcounty$Year= str_sub(oilcounty$Year,4,7)
+gascounty$Year= str_sub(gascounty$Year,4,7)
+
+# extract useful information in dataframe gascounty
+gassub=subset(gascounty,select = c(gas_change_group,Gas_Production))
+
+# combining those columns into dataframe oilcounty
+ogcounty_clean=cbind(oilcounty,gassub)
+oil_gas_change_group=oilgascounty$oil_gas_change_group
+ogcounty_clean=cbind(ogcounty_clean,oil_gas_change_group)
+
+# rearrange the display of columns
+ogcounty_clean=ogcounty_clean[,c(1:8, 10, 11, 13, 9, 12, 14)]
+
+# since column 1 and 2 are both about geographic info, we choose to drop one of the two
+ogcounty_clean <- ogcounty_clean[,-1]
+
+```
+
+### Save data into RData in convenience of further exploration
+```{r}
+save(oilcounty, gascounty, ogcounty_clean, file = "ogcounty.RData")
+rm(list=ls())
+```
+
+### Exploration 1: oil and gas production on a national level from 2000 to 2011
+```{r}
+load('ogcounty.RData')
+# turn the oil_production and gas_production into numeric
+oil_production <- as.numeric(ogcounty_clean$Oil_Production)
+gas_production <- as.numeric(ogcounty_clean$Gas_Production)
+
+# calculate the sum of oil production on a national level from year of 2000 to 2011
+grossoil=unique(aggregate(oil_production,by= list(Year=ogcounty_clean$Year),FUN=sum))
+
+# rename the column
+names(grossoil)[2]="Oil_Sum"
+
+# calculate the sum of gas production on a national level from year of 2000 to 2011
+grossgas=unique(aggregate(gas_production,by= list(Year=ogcounty_clean$Year), FUN=sum))
+
+# rename the column
+names(grossgas)[2]="Gas_Sum"
+
+```
+
+### plots
+```{r}
+# Plot of total oil prodcution
+plotoil=ggplot(data=grossoil)+aes(x=Year,y=Oil_Sum,group=1)+geom_path(col="red")+ggtitle("Gross production of Oil")+geom_point()
+
+# The orignial value on y-axis, which is the total oil production is too large, in order to better the visualization, the value is scaled in the unit of million dollar
+plotoil+scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10)) + labs(x = "Year", y = "Total oil production in million dollar")
+
+# In the graph, we can see a clear trend of total oil production on the national level throughout the years. From 2000 to 2005, there was a steady decline; after 2005, the production had gone up. It is also worth noted that from 2009 to 2011, the total oil production has experienced a rapid gross. 
+
+# Plot of total gas production
+plotgas=ggplot(data=grossgas)+aes(x=Year,y=Gas_Sum,group=1)+geom_path(col="blue")+ggtitle("Gross production of Gas")+geom_point()
+
+# Scale the y-axis
+plotgas+scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10)) + labs(x = "Year", y = "Total gas production in million dollar")
+
+# In the graph, a clear ascending trend in the total gas production is captured. After 2005, the gas production was largely increased.
+```
+
+### Exploration 2:  total oil and gas production by three main type of the county
+```{r}
+typecty_oil=aggregate(as.numeric(ogcounty_clean$Oil_Production),by=list(Year=ogcounty_clean$Year,Type=ogcounty_clean$Metro_Micro_Noncore_2013),FUN=sum)
+names(typecty_oil)[3]="Oil_Sum"
+
+# Plot the total oil production by type of county (2-Metro, 0-Noncore, 1-Micro)
+ggplot(data=typecty_oil,aes(x=Year,y=Oil_Sum))+geom_bar(stat = "identity",aes(fill=Type))+ scale_y_continuous(labels=function(Oil_Sum)Oil_Sum/1000000)+theme(axis.title=element_text(size=10)) + labs(title = "Total oil production by three major county type", x = "Year", y = "Total gas production in million dollar")
+
+typecty_gas=aggregate(as.numeric(ogcounty_clean$Gas_Production),by=list(Year=ogcounty_clean$Year,Type=ogcounty_clean$Metro_Micro_Noncore_2013),FUN=sum)
+names(typecty_gas)[3]="Gas_Sum"
+
+# Plot the total oil production by type of county (2-Metro, 0-Noncore, 1-Micro)
+ggplot(data=typecty_gas,aes(x=Year,y=Gas_Sum))+geom_bar(stat = "identity",aes(fill=Type))+ scale_y_continuous(labels=function(Gas_Sum)Gas_Sum/1000000)+theme(axis.title=element_text(size=10)) + labs(title = "Total gas production by three major county type", x = "Year", y = "Total gas production in million dollar")
+
+```
+
+
+### Exploration 3: the average oil and gas production for each state in the past 12 years
+```{r}
+# calculate the mean for both oil and gas 
+mean <- aggregate(cbind(oil_production,gas_production)~Stabr, data=ogcounty_clean, FUN=sum)
+mean <- data.frame(mean)
+
+# since we want to know the average mean value from 2000 to 2011, we calculate the mean
+mean1 <- mean[, -1]/12
+
+# Matching the state information back
+state <- mean$Stabr
+prod_state <- data.frame(state, mean1)
+
+```
+
+### Plot
+```{r, message=FALSE, warning=FALSE, fig.width=13, fig.height=7}
+# Looking at the mean production for both gas and oil, it is not reasonable to put two in one graph, since the scale is largely different from each other. Hence, we make two seperate plot for gas and oil
+# First is the average oil production
+p <- ggplot(prod_state,aes(x=state,y=oil_production), color="blue") +  geom_bar(stat = "identity", fill = "orange")
+# Scale the y-axis
+p <- p + scale_y_continuous(labels=function(oil_production)oil_production/1000000)+theme(axis.title=element_text(size=10)) + labs(title = "Average oil production of each state", x = "State", y = "Average gas production in million dollar")
+
+# Gas production
+q <- ggplot(prod_state,aes(x=state,y=gas_production), color="blue") + geom_bar(stat = "identity", fill="blue")
+
+# Scale the y-axis
+q <- q + scale_y_continuous(labels=function(gas_production)gas_production/1000000)+theme(axis.title=element_text(size=10)) + labs(title = "Average oil production of each state", x = "State", y = "Average gas production in million dollar")
+
+grid.draw(rbind(ggplotGrob(p), ggplotGrob(q), size = "first"))
+
+# Texas is definitely THE most productive state in both oil and gas!
+```
+
+### Further study:
+* Find out whether the difference between the average total oil/gas production and three major types of county is of statistical significance.
+* Find out the relationship between levels of oil/gas production change by states
+* Find out whether there is a positive correlation between oil and gas production by states.
+
+
